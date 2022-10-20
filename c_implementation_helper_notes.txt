@@ -1,0 +1,11 @@
+To compile a C lib use:
+	cc -c dir/foo.c
+	
+To make a shared lib:
+	cc -shared mycfuncs.o -o libmycfuncs.so
+
+To convert a shared lib to a static lib use:
+	ar rcs libmycfuncs.a mycfuncs.o
+	
+To use CUDA you have to copy the Host Memory to Device Memory 
+use cuBlas to do dense linear algebra, and cuSparse to do Sparse linalg. 
