@@ -14,7 +14,6 @@ void create_sparse_from_csr(
     float *csr_vals, 
     int nnz, 
     int sizeof_row, 
-    int sizeof_col,
     int m, 
     int n
     ) {
@@ -37,14 +36,14 @@ void create_sparse_from_csr(
 
     // allocate device memory to store the sparse CSR
     status = cudaMalloc((void **)&dCsrValPtr, sizeof(float) * nnz);
+    status = cudaMalloc((void **)&dCsrColPtr, sizeof(int) * nnz);
     status = cudaMalloc((void **)&dCsrRowPtr, sizeof(int) * sizeof_row);
-    status = cudaMalloc((void **)&dCsrColPtr, sizeof(int) * sizeof_col);
 
     // Free the device memory allocated to the coo ptrs once they
     // the conversion from coo to csr has been completed
-    cudaMemcpy(dCsrRowPtr, csr_row, sizeof(int) * sizeof_row, cudaMemcpyHostToDevice);
-    cudaMemcpy(dCsrColPtr, csr_col, sizeof(int) * sizeof_row, cudaMemcpyHostToDevice);
     cudaMemcpy(dCsrValPtr, csr_vals, sizeof(float) * nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(dCsrColPtr, csr_col, sizeof(int) * nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(dCsrRowPtr, csr_row, sizeof(int) * sizeof_row, cudaMemcpyHostToDevice);
 
     // create the sparse CSR matrix in device memory
     status = cusparseCreateCsr(
@@ -67,5 +66,17 @@ void create_sparse_from_csr(
 
     status = cusparseDestroy(handle);
     cusparseDestroySpMat(descrC);
+}
+
+// There is no Rust equivalent of handle
+void create_session(cusparseHandle_t *handle) {
+    // create a handle 
+
+    // create a matrix description
+    cusparseCreate(&handle);
+}
+
+void destroy_session(cusparseHandle_t handle) {
+    cusparseDestroy(handle);
 }
 
