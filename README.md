@@ -24,6 +24,8 @@ The idea is to manage memory using Rust, bue still leverage the low level power 
 
 I don't see any point in using a monolithic FFI for CUDA libs when it is clear that CUDA interfaces will not be natively written in `Rust` any time soon. Further, there is no FFI for `cuSparse` which is arguably the more important CUDA library. 
 
+It is much easier to write a small implementation using the `cuSparse` header and then create a small FFI related to a `Rust` project, which is playing to the strengths of both languages.
+
 ## Implementation Notes
 
 A quick note on `build.rs` linking ordering. For `cargo test` to work the linked libraries need to go after `cc::Build::new()` otherwise a linking error will be generated, i.e.:
@@ -37,43 +39,5 @@ cc::Build::new()
     .compile("mycfuncs");
     
 println!("cargo:rustc-link-lib=dylib=cublas");
-```
-
-### How to start a cuSparse session from `Rust`
-
-On the `Rust` side in `lib.rs` we require some way of creating a `cusparseHandle_t`. Similarly, this can be achieved in the same way for `cuBlas`. This is done using the following functions.
-
-Creation of `handle` requires the pair:
-```Rust
-pub struct cusparseContext {
-    _unused: [u8; 0],
-}
-
-pub type cusparseHandle_t = *mut cusparseContext;
-
-extern "C" {
-    pub fn create_session(handle: *mut cusparseHandle_t);
-}
-
-pub fn create_session_ffi() -> *mut cusparseHandle_t {
-    let mut handle: *mut cusparseHandle_t = std::ptr::null_mut();
-    unsafe {
-        create_session(handle);
-    }
-    handle
-}
-```
-
-Naturally, we also need to free the handle from memory to avoid memory leaks on the device side (GPU). This is done using the following functions. 
-```Rust
-extern "C" {
-    pub fn destroy_session(handle: *mut cusparseHandle_t);
-}
-
-pub fn destroy_session_ffi(handle: *mut cusparseHandle_t) {
-    unsafe {
-        destroy_session(handle);
-    }
-}
 ```
 

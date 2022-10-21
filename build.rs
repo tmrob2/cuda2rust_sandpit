@@ -9,7 +9,7 @@ fn main() {
     .file("myclib/test_cusparse.c")
     .cuda(true)
     .compile("mycfuncs");
-    
+    println!("cargo:rustc-link-lib=dylib=cudart");
     println!("cargo:rustc-link-lib=dylib=cublas");
     println!("cargo:rustc-link-lib=dylib=cusparse");
     println!("cargo:rustc-link-search=native=/usr/local/cuda/lib64/");

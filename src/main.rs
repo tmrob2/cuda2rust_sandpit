@@ -1,5 +1,5 @@
 use rand::Rng;
-use ctest::{doubler_interface, cuda_spaxy_ffi, CS_SI, SP_TYPE};
+use ctest::{doubler_interface, cuda_spaxy_ffi, CS_SI, SP_TYPE, csr_spmv_ffi};
 
 fn main() {
     println!("Hello, world!");
@@ -58,5 +58,37 @@ fn main() {
     let csr = coo.csr_compress();
 
     println!("csr\n{:?}", csr);
+
+    println!("Testing Sp CSR Mv");
+
+    let row: Vec<i32> = vec![0, 0, 0, 1, 2, 2, 2, 3, 3];
+    let col: Vec<i32> = vec![0, 2, 3, 1, 0, 2, 3, 1, 3]; 
+    let val: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let nzmax = val.len() as i32;
+    let nz = 0;
+    let m = 4;
+    let n = 4;
+    let mut coo = CS_SI::make(nzmax, m, n, nz, SP_TYPE::Triple);
+    for k in 0..val.len() {
+        coo.triple_entry(row[k], col[k], val[k]);
+    }
+    let csr = coo.csr_compress();
+
+    let x: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
+    let mut y: Vec<f32> = vec![0., 0., 0., 0.];
+
+    csr_spmv_ffi(
+        &csr.i, 
+        &csr.p, 
+        &csr.x, 
+        &x, 
+        &mut y,
+        csr.nz, 
+        csr.i.len() as i32, 
+        csr.m, 
+        csr.n
+    );
+
+    println!("y: {:?}", y);
 
 }

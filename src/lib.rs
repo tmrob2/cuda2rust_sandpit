@@ -63,7 +63,6 @@ impl CS_SI {
         } else {
             println!("entry greater than max entries.");
         }
-        println!("update:\n{:?}", self);
     }
 
     pub fn free(&mut self) {
@@ -121,6 +120,8 @@ pub struct cusparseContext {
 }
 
 pub type cusparseHandle_t = *mut cusparseContext;
+pub type cusparseSpMatDescr_t = *mut cusparseContext;
+pub type cusparseDnVecDescr_t = *mut cusparseContext;
 
 extern "C" {
     pub fn create_session(handle: *mut cusparseHandle_t);
@@ -175,10 +176,12 @@ pub fn cuda_spaxy_ffi(x: &[f32], y: &mut [f32], alpha: f32) {
 }
 
 extern "C" {
-    fn create_sparse_from_csr(
+    fn csr_spmv(
         csr_row: *const i32, 
         csr_col: *const i32, 
         csr_vals: *const f32,
+        x: *const f32,
+        y: *mut f32,
         nnz: i32, 
         sizeof_row: i32, 
         m: i32,
@@ -186,20 +189,24 @@ extern "C" {
     );
 }
 
-pub fn create_sparse_from_csr_ffi(
+pub fn csr_spmv_ffi(
     row: &[i32],
     col: &[i32],
     vals: &[f32],
+    x: &[f32],
+    y: &mut [f32],
     nnz: i32,
     sizeof_row: i32,
     m: i32,
     n: i32,
 ) {
     unsafe {
-        create_sparse_from_csr(
+        csr_spmv(
             row.as_ptr(), 
             col.as_ptr(), 
             vals.as_ptr(), 
+            x.as_ptr(), 
+            y.as_mut_ptr(),
             nnz, 
             row.len() as i32,
             m, 
@@ -223,7 +230,9 @@ Tests
 #[cfg(test)]
 mod tests {
     use rand::Rng;
-    use crate::{cadd, CS_SI, cuda_spaxy_ffi, SP_TYPE, create_sparse_from_csr_ffi, create_session, create_session_ffi, destroy_session_ffi};//, cuda_spaxy_ffi};
+    use crate::{cadd, CS_SI, cuda_spaxy_ffi, SP_TYPE, 
+        create_session, create_session_ffi, destroy_session_ffi,
+        cusparseSpMatDescr_t, csr_spmv_ffi};//, cuda_spaxy_ffi};
     #[test]
     fn test_cadd() {
         let mut rng = rand::thread_rng();
@@ -312,28 +321,38 @@ mod tests {
 
     #[test]
     fn cusparse_csr_input() {
-        let row: Vec<i32> = vec![0, 0, 1, 1, 2, 2, 2, 3];
-        let col: Vec<i32> = vec![0, 1, 1, 3, 2, 3, 4, 5]; 
-        let val: Vec<f32> = vec![10., 20., 30., 40., 50., 60., 70., 80.];
+        let row: Vec<i32> = vec![0, 0, 0, 1, 2, 2, 2, 3, 3];
+        let col: Vec<i32> = vec![0, 2, 3, 1, 0, 2, 3, 1, 3]; 
+        let val: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
         let nzmax = val.len() as i32;
         let nz = 0;
         let m = 4;
-        let n = 6;
+        let n = 4;
         let mut coo = CS_SI::make(nzmax, m, n, nz, SP_TYPE::Triple);
         for k in 0..val.len() {
             coo.triple_entry(row[k], col[k], val[k]);
         }
         let csr = coo.csr_compress();
 
-        create_sparse_from_csr_ffi(
+        let x: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
+        let mut y: Vec<f32> = vec![0., 0., 0., 0.];
+
+        csr_spmv_ffi(
             &csr.i, 
             &csr.p, 
             &csr.x, 
+            &x, 
+            &mut y,
             csr.nz, 
             csr.i.len() as i32, 
             csr.m, 
             csr.n
-        )
+        );
+
+        assert_eq!(y, vec![19.0, 8.0, 51.0, 52.0]);
+
+        //destroy_session_ffi(handle);
     }
+    
 }
 
