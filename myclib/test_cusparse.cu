@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <cuda_runtime_api.h>
-#include<cuda.h>
+#include <cuda_runtime.h>
+//#include <cuda.h>
 #include <cusparse_v2.h>
 
 // What we are interested in constructing a CSR matrix
 // Assume that we already have a sparse matrix on host memory using 
 // CXSparse and we just want to convert it to device memory 
+extern "C" {
 void csr_spmv(
     int *csr_row, 
     int *csr_col, 
@@ -35,9 +36,9 @@ void csr_spmv(
     float *dCsrValPtr;
 
     // allocate device memory to store the sparse CSR
-    status = cudaMalloc((void **)&dCsrValPtr, sizeof(float) * nnz);
-    status = cudaMalloc((void **)&dCsrColPtr, sizeof(int) * nnz);
-    status = cudaMalloc((void **)&dCsrRowPtr, sizeof(int) * sizeof_row);
+    cudaMalloc((void **)&dCsrValPtr, sizeof(float) * nnz);
+    cudaMalloc((void **)&dCsrColPtr, sizeof(int) * nnz);
+    cudaMalloc((void **)&dCsrRowPtr, sizeof(int) * sizeof_row);
 
     // Free the device memory allocated to the coo ptrs once they
     // the conversion from coo to csr has been completed
@@ -110,14 +111,4 @@ void csr_spmv(
 
 }
 
-// There is no Rust equivalent of handle
-void create_session(cusparseHandle_t *handle) {
-    // create a handle 
-    // create a matrix description
-    cusparseCreate(&handle);
 }
-
-void destroy_session(cusparseHandle_t handle) {
-    cusparseDestroy(handle);
-}
-

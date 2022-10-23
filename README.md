@@ -41,3 +41,7 @@ cc::Build::new()
 println!("cargo:rustc-link-lib=dylib=cublas");
 ```
 
+## Tests
+
+Run lib tests with `cargo test`.
+

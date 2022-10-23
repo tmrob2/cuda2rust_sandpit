@@ -1,6 +1,6 @@
+use libc::c_float;
 use rand::Rng;
-use ctest::{doubler_interface, cuda_spaxy_ffi, CS_SI, SP_TYPE, csr_spmv_ffi};
-
+use ctest::*;
 fn main() {
     println!("Hello, world!");
 
@@ -90,5 +90,25 @@ fn main() {
     );
 
     println!("y: {:?}", y);
+
+    println!("Testing C vector of matrices");
+
+    let aref = vec![1., 2.];
+
+    let a = CsrMatrix {
+        x: aref.as_slice().as_ptr(),
+        size: 2,
+        a: 1
+    };
+
+    let b = CsrMatrix {
+        x: [3., 4.].as_ptr(),
+        size: 2,
+        a: 2
+    };
+
+    let mut v = vec![a, b];
+
+    list_of_m_ffi(&mut v[..]);
 
 }

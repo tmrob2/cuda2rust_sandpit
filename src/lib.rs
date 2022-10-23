@@ -21,6 +21,8 @@ CS_SI Triple
 **********************************************************
 */
 
+use std::ffi::c_int;
+
 #[derive(Debug)]
 pub enum SP_TYPE {
     Triple,
@@ -119,9 +121,16 @@ pub struct cusparseContext {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+pub struct cublasContext {
+    _unused: [u8; 0],
+}
+
 pub type cusparseHandle_t = *mut cusparseContext;
 pub type cusparseSpMatDescr_t = *mut cusparseContext;
 pub type cusparseDnVecDescr_t = *mut cusparseContext;
+
+pub type cublasHandle_t = *mut cublasContext;
 
 extern "C" {
     pub fn create_session(handle: *mut cusparseHandle_t);
@@ -165,6 +174,7 @@ pub fn cadd<'a>(x: &[f32], y: &[f32], z: &mut [f32]) {
     }
 }
 
+#[link(name="cudatest", kind="static")]
 extern "C" {
     fn cuda_call_spaxy(x: *const f32, y: *mut f32, n: i32, alpha: f32);
 }
@@ -175,6 +185,7 @@ pub fn cuda_spaxy_ffi(x: &[f32], y: &mut [f32], alpha: f32) {
     }
 }
 
+#[link(name="cudatest", kind="static")]
 extern "C" {
     fn csr_spmv(
         csr_row: *const i32, 
@@ -215,6 +226,37 @@ pub fn csr_spmv_ffi(
     }
 }
 
+use std::ffi;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct CsrMatrix {
+    pub x: *const f32,
+    pub size: i32,
+    pub a: i32
+}
+
+extern "C" {
+    fn my_c_struct_ptr(p: *mut CsrMatrix, len: libc::size_t);
+}
+
+pub fn list_of_m_ffi(v: &mut [CsrMatrix]) {
+    unsafe {
+        my_c_struct_ptr(v.as_mut_ptr(), v.len() as libc::size_t);
+    }
+}
+
+#[link(name="cudatest", kind="static")]
+extern "C" {
+    fn call_reshape(v: *const f32, m: *mut f32, size_x: i32, num_actions: i32);
+}
+
+pub fn call_reshape_ffi(v: &[f32], m: &mut [f32], size_x: i32, num_actions: i32) {
+    unsafe {
+        call_reshape(v.as_ptr(), m.as_mut_ptr(), size_x, num_actions);
+    }
+}
+
 
 /*
 **********************************************************
@@ -232,7 +274,7 @@ mod tests {
     use rand::Rng;
     use crate::{cadd, CS_SI, cuda_spaxy_ffi, SP_TYPE, 
         create_session, create_session_ffi, destroy_session_ffi,
-        cusparseSpMatDescr_t, csr_spmv_ffi};//, cuda_spaxy_ffi};
+        cusparseSpMatDescr_t, csr_spmv_ffi, call_reshape_ffi};//, cuda_spaxy_ffi};
     #[test]
     fn test_cadd() {
         let mut rng = rand::thread_rng();
@@ -314,12 +356,6 @@ mod tests {
     }
 
     #[test]
-    fn start_tear_down_session() {
-        let handle = create_session_ffi();
-        destroy_session_ffi(handle);
-    }
-
-    #[test]
     fn cusparse_csr_input() {
         let row: Vec<i32> = vec![0, 0, 0, 1, 2, 2, 2, 3, 3];
         let col: Vec<i32> = vec![0, 2, 3, 1, 0, 2, 3, 1, 3]; 
@@ -353,6 +389,24 @@ mod tests {
 
         //destroy_session_ffi(handle);
     }
-    
+
+    #[test]
+    fn cuda_reshape() {
+
+        let num_actions = 4;
+        let v: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
+        
+        let mut m: Vec<f32> = vec![0.; v.len() * num_actions];
+
+        call_reshape_ffi(&v, &mut m, v.len() as i32, num_actions as i32);
+
+        assert_eq!(m, 
+            vec![
+                1.0, 2.0, 3.0, 4.0, 
+                1.0, 2.0, 3.0, 4.0, 
+                1.0, 2.0, 3.0, 4.0, 
+                1.0, 2.0, 3.0, 4.0
+                ]);
+    }
 }
 
